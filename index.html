@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>NFTrivia</title>
+		<meta name="description" content="Use your NFTs to generate dynamic trivia-matching games.">
+		<meta name="author" content="Steve Veerman">
+		<meta property="og:type" content="website">
+		<meta property="og:title" content="NFTrivia">
+		<meta property="og:site_name" content="NFTrivia">
+		<meta property="og:description" content="Use your NFTs to generate dynamic trivia-matching games.">
+		<meta property="og:image" content="https://nftrivia.app/images/og.png">
+		<meta property="twitter:domain" content="nftrivia.app">
+		<meta name="twitter:site" content="@NFTrivia">
+		<meta name="twitter:creator" content="@intangible_eth">
+		<meta name="twitter:title" content="NFTrivia">
+		<meta name="twitter:description" content="Use your NFTs to generate dynamic trivia-matching games.">
+		<meta name="twitter:image" content="https://nftrivia.app/images/og.png">
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+		<style>
+			body {
+				font-family: Arial, Helvetica, sans-serif;
+				color: #fff;
+				background-color: #000;
+			  -webkit-user-select: none; /* prevent text select: Safari */
+			  -ms-user-select: none; /* prevent text select: IE 10 and IE 11 */
+			  user-select: none; /* prevent text select: Standard syntax */
+			  touch-action: manipulation /* disable double tap zoom */
+			}
+
+			body, td, div, p {
+				margin: 0;
+				padding: 0;
+			}
+
+			table {
+				border-collapse: collapse;
+			}
+
+			td {
+				border: 1px solid #fff;
+				vertical-align: middle;
+				text-align: center;
+				background-color: #000;
+			}
+
+			#grid {
+				display: table;
+				margin: auto;
+			}
+
+			.game_card {
+				margin: auto;
+				margin-left: auto;
+				margin-right: auto;
+				text-align: center;
+				position: relative;
+				vertical-align: middle;
+				background-color: #000;
+			}
+
+			.game_card img {
+				max-width: 100%;
+				max-height: 100%;
+				width: auto;
+				height: auto;
+				margin: auto;
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+			}
+
+			.game_card div {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%,-50%);
+				background-color: #000;
+				font-weight: bold;
+			}
+
+			.matched {
+				filter:grayscale(100%) brightness(100%);
+				font-style: italic;
+				text-decoration-line: line-through;
+			}
+
+			.game_stats {
+				font-size: 12px;
+			}
+		</style>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+		<script src="js/products_traits.js"></script>
+		<script>
+			// timer/stopwatch
+			let timer_interval, time_start = 0;
+			const onTimerInterval = () => {
+				game.duration = time_start > 0 ? (performance.now() - time_start) / 1000 : 0;
+				for(let element of document.getElementsByClassName('timer')){
+					element.innerHTML = game.duration.toFixed(1);
+				}
+			}
+
+			const startTimer = () => {
+				time_start = performance.now();
+				timer_interval = setInterval(onTimerInterval, 100);
+			}
+
+			const stopTimer = () => {
+				clearInterval(timer_interval);
+				onTimerInterval();
+			}
+
+			// get JSON (fastest available) given an array of urls
+			const getJSON = async (urls) => {
+				let info = 'getJSON';
+			  let result;
+			  try{
+					const response = await Promise.any(urls.map(url => fetch(url)));
+					result = await response.json();
+			  	console.log([info, urls, result]);
+			  } catch (err){
+			  	console.log(['error: ' + info, urls, err]); // catch CORS here
+			  }
+				return result;
+			}
+
+			// given object and quantity, return new randomized (and sliced) object
+			const getRandomItems = (obj, qty) => {
+				let rand = {};
+				let keys = Object.keys(obj);
+				for(let i = 0; i < keys.length; i++){
+					let idx = Math.floor(Math.random() * keys.length);
+					key_rand = keys[idx];
+					rand[key_rand] = obj[key_rand];
+					if (Object.keys(rand).length == qty){
+						i = keys.length;
+					}
+				}
+				return rand;
+			}
+
+			// given object and a string of keys (separated by dot .) return value in object
+			const getObjectValue = (obj, keys_str) => {
+				const keys = keys_str.split('.');
+				let val = obj;
+				for(let key of keys){
+					val = val[key];
+				}
+				return val;
+			}
+
+			// given object (item) and a string key (trait), create a card object
+			const createCard = (item, trait) => {
+				let card = {};
+				card.status = 'hidden';
+				let val = getObjectValue(item, trait);
+				if (val){
+					if (val.indexOf('https://') !== -1){ // assume hyperlinks are images
+						card.img = val;
+					}
+					else{
+						card.text = val;
+					}
+				}
+				else{
+					card = null;
+				}
+				return card;
+			}
+
+			// given object and traits, create an array of cards used for the game
+			const createCards = (items, traits_pair) => {
+				let result = [];
+				let keys = Object.keys(items);
+				for(let i = 0; i < keys.length; i++){
+					let key = keys[i];
+					let card0 = createCard(items[key], traits_pair[0]);
+					let card1 = createCard(items[key], traits_pair[1]);
+
+					card0 = card0 ?? structuredClone(card1); // duplicate other card if one is bad
+					card1 = card1 ?? structuredClone(card0);
+
+					if (card0 && card1){
+						card0.id = i;
+						card1.id = i;
+						result.push(card0);
+						result.push(card1); // add twice to create a card "pair"
+					}
+					else{
+						console.log(['createCards', items[keys[i]]]);
+					}
+				}
+				return result;
+			}
+
+			// shuffle given array
+			const shuffleArray = (array) => {
+				for(let i = array.length - 1; i > 0; i--){
+					const j = Math.floor(Math.random() * (i + 1));
+					[array[i], array[j]] = [array[j], array[i]];
+				}
+				return array;
+			}
+
+			// determine factors of a given number
+			const getFactors = (num) => {
+				let factors = [];
+				for(let i = 1; i <= num; i++){
+					if(num % i == 0){ // number is a factor
+						factors.push(i);
+					}
+				}
+				return factors;
+			}
+
+			// calculate most "square-like" grid given factors, eg. 4 has factors 1,2,4, and should create a 2x2 grid
+			const getGrid = (factors) => {
+				let len = factors.length;
+				if (len % 2 == 0){ // even number of factors
+					key1 = (len / 2) - 1;
+					key2 = len / 2;
+				}
+				else{ // odd number of factors
+					key1 = key2 = Math.floor(len / 2);
+				}
+				return [factors[key1], factors[key2]];
+			}
+
+			// determine the grid size to use based on the factors of a number and its "square-like" ratio
+			const getGridByRatio = (num, ratio) => {
+				let factors = [];
+				let loop = true;
+				while (loop){ // find ratio that is at least equal to requested ratio
+					factors = getFactors(ratio_num);
+					grid = getGrid(factors);
+					grid_ratio = (grid[0] / grid[1]).toFixed(2);
+					console.log(ratio_num + ' has factors of ' + factors.join(',') + ' using ' + grid.join('x',) + ' grid creates a ratio of ' + grid_ratio);
+					if (grid_ratio >= ratio){ // satisfactory ratio found
+						loop = false;
+					}
+					else{
+						ratio_num++; // increment number used to calculate ratio
+					}
+				}
+				return grid;
+			}
+
+			// draw table skeleton based on rows and cols
+			const drawGrid = (rows, cols) => {
+				let i = 0;
+				let rows_html = [];
+				for(let row = 0; row < rows; row++){
+					let cols_html = [];
+					for(let col = 0; col < cols; col++){
+						cols_html.push('<td data-id="' + i + '"><div class="game_card"></div></td>');
+						i++;
+					}
+					rows_html.push('<tr>' + cols_html.join('') + '</tr>');
+				}
+				return '<table class="game_grid">' + rows_html.join('') + '</table>';
+			}
+
+			// add click event listeners to all td in table
+			const addGridListeners = () => {
+				const cells = document.querySelectorAll('td');
+				for(let cell of cells){
+				  cell.addEventListener('click', (event) => {
+				  	clickCell(event.target.closest('td'));
+				  });
+				}
+			}
+
+			// preload cards images
+			const preloadCardsImages = () => {
+				let images;
+				for(let card of cards){
+					if (card.hasOwnProperty('img')){
+						images = new Image();
+						images.src = card.img;
+					}
+				}
+			}
+
+			const updateGrid = () => {
+				for(let element of document.getElementsByClassName('game_matches')){
+					element.innerHTML = game.matches + ' / ' + (cards.length / 2);
+				}
+				for(let element of document.getElementsByClassName('game_mismatches')){
+					element.innerHTML = game.mismatches;
+				}
+
+				const cells = document.querySelectorAll('#grid td div.game_card');
+				for(let i = 0; i < cards.length; i++){
+					let card = cards[i];
+					let cell = '<img src="' + hidden_img + '">';
+
+					if (card.status == 'visible' || card.status == 'matched'){
+						if (card.hasOwnProperty('img')){
+							cell = '<img class="' + card.status + '" src="' + card.img + '">';
+						}
+						else if (card.hasOwnProperty('text')){
+							cell = '<div class="' + card.status + '">' + card.text + '</div>';
+						}
+					}
+
+					if (cells[i].innerHTML !== cell){ // contents of cell have changed, update cell in grid
+						cells[i].innerHTML = cell;
+					}
+				}
+			}
+
+			const calcCardSize = () => {
+				const grid = document.getElementById('grid');
+				const grid_parent_children = grid.parentNode.childNodes;
+				let heights = grid.clientHeight * -1; // remove grid from total
+				for(let i = 0; i < grid_parent_children.length; i++){ // find the total height of everything (including grid)
+					heights += grid_parent_children[i].clientHeight ?? 0;
+				}
+
+				let result = {
+					'grid_rows': grid.querySelectorAll('tr').length,
+					'grid_cols': grid.querySelectorAll('tr')[0].querySelectorAll('td').length,
+					'innerHeight': window.innerHeight,
+					'innerWidth': window.innerWidth
+				};
+
+				result.grid_height = result.innerHeight - heights - result.grid_rows - 1; // determine max grid height, also substract cols - 1 to compensate for 1px border
+				result.grid_width = result.innerWidth - result.grid_cols - 1; // substract cols - 1 to compensate for 1px border
+
+				result.card_height = result.grid_height / result.grid_rows;
+				result.card_width = result.grid_width / result.grid_cols;
+
+				return result;
+			}
+
+			const resizeCards = () => {
+				let card_size = calcCardSize();
+				console.log('resizeCards');
+				console.log(card_size);
+				let style = document.createElement('style');
+				style.type = 'text/css';
+				style.innerHTML = '.game_card { width: ' + Math.floor(card_size.card_width) + 'px; height: ' + Math.floor(card_size.card_height) + 'px; }'; // overwrite previous rule
+				document.getElementsByTagName('head')[0].appendChild(style);
+			}
+
+			// return card_ids that are currently visible
+			const getVisibleCards = () => {
+				let card_ids = [];
+				for(let i = 0; i < cards.length; i++){
+					if (cards[i].status == 'visible'){
+						card_ids.push(i);
+					}
+				}
+				return card_ids;
+			}
+
+			// reset (hide) given card_ids
+			const hideCards = (card_ids) => {
+				for(let i = 0; i < card_ids.length; i++){
+					cards[card_ids[i]].status = 'hidden';
+				}
+			}
+
+			// card states: hidden, visible, matched
+			const checkCard = (card_id) => {
+				let card_ids = getVisibleCards();
+				if (cards[card_id].status == 'hidden'){ // ignore if current card visible or previously matched
+					cards[card_id].status = 'visible'; // set current card visible
+					if (card_ids.length >= 2){ // two+ cards already visible, reset guesses
+						hideCards(card_ids);
+						game.mismatches++;
+					}
+					else if (card_ids.length == 1){ // one card already visible
+						if (cards[card_ids[0]].id == cards[card_id].id){ // previous visible card id matches current clicked card id
+							cards[card_ids[0]].status = 'matched';
+							cards[card_id].status = 'matched';
+							game.matches++;
+						}
+					}
+				}
+			}
+
+			const clickCell = (td) => {
+		  	let card_id = td.getAttribute('data-id');
+		  	if (cards.hasOwnProperty(card_id)){ // card_id is in cards range (not out of grid bounds)
+					if (game.clicks == 0){ // start game
+						startTimer();
+					}
+					game.clicks++;
+
+			  	console.log('Cell ' + card_id);
+			  	console.log(cards[card_id]);
+			  	checkCard(card_id);
+			  	updateGrid();
+
+			  	if (game.matches == (cards.length / 2)){ // game finished?
+			  		stopTimer();
+			  		modals.summary.show();
+			  	}
+		  	}
+			}
+
+			// dynamically create dropdown/select options given a list object and optional 'selected' value
+			const populateDropdown = (list, selected) => {
+				let dropdown = document.createElement('select');
+				for(let key in list){
+					let option = document.createElement('option');
+					option.value = key;
+					option.text = list[key];
+					if (key == selected){
+						option.setAttribute('selected', 'selected');
+					}
+					dropdown.appendChild(option);
+				}
+				return dropdown.innerHTML;
+			}
+
+			// initialize form data, using query string params and defaults if necessary
+			let form_data = {};
+			let searchParams = new URLSearchParams(window.location.search);
+			searchParams.forEach((value, key) => {
+			  form_data[key] = value;
+			});
+			let form_defaults = {
+				'product': 'nbatopshot',
+				'max_matches': 6,
+				'trait1': 'full_name',
+				'trait2': 'media_urls.player'
+			}
+			for (let key in form_defaults){
+				if (!form_data.hasOwnProperty(key)){
+					form_data[key] = form_defaults[key];
+				}
+			}
+
+			let modals = {};
+			let metadatas = {};
+			let cards;
+			let game;
+			let hidden_img = 'images/nftrivia-card.png';
+
+			document.addEventListener('DOMContentLoaded', () => {
+				console.log('document DOMContentLoaded');
+				init();
+				start();
+			});
+
+			// happens once per page load
+			const init = () => {
+				console.log('init');
+
+				modals.options = new bootstrap.Modal(document.getElementById('modal_options'));
+				modals.about = new bootstrap.Modal(document.getElementById('modal_about'));
+				const modal_summary = document.getElementById('modal_summary');
+				modals.summary = new bootstrap.Modal(modal_summary);
+				modal_summary.addEventListener('shown.bs.modal', event => {
+					let twitter_post = `Just matched ${game.matches} ${form_data.product} NFTs (with ${game.mismatches} mismatches) in ${game.duration.toFixed(1)} seconds on @NFTrivia.\n\nCan you beat me?\n\n`;
+					twitter_post += 'https://nftrivia.app/?' + (new URLSearchParams(form_data).toString());
+					for(let element of document.getElementsByClassName('twitter_share')){
+						element.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(twitter_post);
+					}
+				})
+
+				window.addEventListener('load',() => {
+					console.log('window load');
+					setTimeout(() => {
+						window.scrollTo(0, 1); // hides the address bar
+					}, 100);
+				});
+
+				window.addEventListener('resize', (event) => {
+					console.log('window resize');
+					resizeCards();
+				});
+
+				// init options modal
+
+				// remove empty values on form submit
+				let form = document.querySelector('#modal_options form');
+				form.addEventListener('submit', () => {
+					for(let item of document.getElementsByTagName('input')){
+						if (!item.value){
+							item.disabled = 'disabled';
+						}
+					}
+				});
+
+				// add event listeners to link changes on form to form_data
+				form.addEventListener('input', (event) => {
+					updateFormData(event.target.id);
+				});
+				const selects = form.querySelectorAll('select');
+				for(let select of selects){
+				  select.addEventListener('change', (event) => {
+						updateFormData(event.target.id);
+				  });
+				}
+
+				document.getElementById('product').innerHTML = populateDropdown(products, form_data.product);
+				const populateTraits = () => {
+					document.getElementById('trait1').innerHTML = populateDropdown(traits[form_data.product], form_data.trait1);
+					document.getElementById('trait2').innerHTML = populateDropdown(traits[form_data.product], form_data.trait2);
+			  	if (!traits[form_data.product].hasOwnProperty(form_data.trait1)){
+			  		form_data.trait1 = document.getElementById('trait1').value
+			  	}
+			  	if (!traits[form_data.product].hasOwnProperty(form_data.trait2)){
+			  		form_data.trait2 = document.getElementById('trait2').value
+			  	}
+				}
+				populateTraits();
+
+			  document.getElementById('product').addEventListener('change', (event) => {
+					populateTraits();
+			  });
+
+			  document.getElementById('flow_address').value = form_data.hasOwnProperty('flow_address') ? form_data.flow_address : '';
+			  document.getElementById('max_matches').value = form_data.max_matches;
+			}
+
+			const updateFormData = (id) => {
+		  	form_data[id] = document.getElementById(id).value;
+				if (window.history.replaceState){
+					let url = '?' + (new URLSearchParams(form_data).toString());
+					window.history.replaceState({}, 'NFTrivia', url);
+				}
+				document.getElementById('difficulty').innerHTML = predictDifficulty();
+			}
+
+			const arrayValuesContain = (arr, str = '') => {
+				console.log([arr, str]);
+				let found = false;
+				for(let item of arr){
+					if (str.toLowerCase().indexOf(item) !== -1){
+						found = true;
+					}
+				}
+				return found;
+			}
+
+			const predictDifficulty = () => {
+				let difficulty_score = 0;
+				if (form_data.trait1 === form_data.trait2){ // traits are the same (ie. simple pattern matching), should be easy
+					difficulty_score += 0;
+				}
+				else{ // medium or hard
+					let trait_values = ['player name', 'team name', 'player number'];
+					if (arrayValuesContain(trait_values, traits[form_data.product][form_data.trait1]) && arrayValuesContain(trait_values, traits[form_data.product][form_data.trait2])){ // both traits contain medium trait value
+						difficulty_score += 1;
+					}
+					else{
+						difficulty_score += 2;
+					}
+				}
+				if (form_data.max_matches >= 16){ // add +1 difficulty if more than 16 match pairs
+					difficulty_score += 1;
+				}
+
+				let difficulty_label = '';
+				switch(difficulty_score){
+					case 0:
+						difficulty_label = 'Easy';
+						break;
+					case 1:
+						difficulty_label = 'Medium';
+						break;
+					default:
+						difficulty_label = 'Hard';
+				}
+				return difficulty_label;
+			}
+
+			const start = async () => {
+				console.log('start');
+				game = {
+					'matches': 0,
+					'mismatches': 0,
+					'clicks': 0,
+					'duration': 0
+				};
+				time_start = 0;
+				stopTimer();
+
+				let json_url = 'collections_examples/' + form_data.product + '.json'; // set default example collection dataset if no flow address given
+				if (form_data.hasOwnProperty('flow_address') && form_data.flow_address !== ''){
+					json_url = 'collections.php?product=' + form_data.product + '&address=' + form_data.flow_address;
+				}
+
+				if (!metadatas.hasOwnProperty(json_url)){ // fetch metadata if not already saved
+					metadatas[json_url] = await getJSON([json_url]); // load NFT collection
+				}
+				let items = getRandomItems(metadatas[json_url], form_data.max_matches); // using metadata, select items randomly
+
+				cards = createCards(items, [form_data.trait1, form_data.trait2]); // using items and traits, create cards
+				cards = shuffleArray(cards); // shuffle cards
+				console.log(cards);
+
+				let num = ratio_num = cards.length;
+				console.log('number of cards: ' + num);
+
+				let gridsize = getGridByRatio(num, 0.6); // using 0.6, but consider determining ideal ratio based on screen height/width
+				if (window.matchMedia("(orientation: portrait)").matches){ // swap rows/cols if landscape
+					gridsize = [gridsize[1], gridsize[0]];
+				}
+
+				let grid = document.getElementById('grid');
+				grid.innerHTML = drawGrid(gridsize[0], gridsize[1]);
+				addGridListeners();
+
+				preloadCardsImages();
+
+				updateGrid();
+				resizeCards();
+			}
+		</script>
+	</head>
+	<body>
+		<nav class="navbar navbar-expand-lg bg-body-tertiary">
+			<div class="container-fluid">
+				<a class="navbar-brand" href="#">NFTrivia</a>
+				<ul class="navbar-nav d-flex flex-row me-1">
+					<li class="nav-item me-3 me-lg-0">
+						<a class="nav-link text-white" href="javascript:start();"><i class="bi-arrow-repeat"></i> New Game</a>
+					</li>
+					<li class="nav-item me-3 me-lg-0">
+						<a class="nav-link text-white" href="javascript:modals.options.show()"><i class="bi-gear"></i> Options</a>
+					</li>
+					<li class="nav-item me-3 me-lg-0">
+						<a class="nav-link text-white" href="javascript:modals.about.show()"><i class="bi-info-circle"></i> About</a>
+					</li>
+				</ul>
+			</div>
+		</nav>
+		<div class="container text-center game_stats" style="padding: 14px">
+		  <div class="row">
+		    <div class="col">
+		      <i class="bi-stopwatch"></i> Timer: <span class="timer"></span>
+		    </div>
+		    <div class="col">
+		      <i class="bi-check-all"></i> Matches: <span class="game_matches"></span>
+		    </div>
+		    <div class="col">
+					<i class="bi-x"></i> Mismatches: <span class="game_mismatches"></span>
+		    </div>
+		  </div>
+		</div>
+		<div id="grid"></div>
+
+		<!-- Options Modal -->
+		<div class="modal fade" id="modal_options" tabindex="-1" aria-labelledby="modal_optionsLabel" aria-hidden="true">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		    	<form method="get" id="options">
+		      <div class="modal-header">
+		        <h1 class="modal-title fs-5" id="modal_optionsLabel">Options</h1>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		      </div>
+		      <div class="modal-body">
+						  <div>
+								<label class="form-label" for="flow_address">Flow Address (or Dapper username):</label>
+								<input type="text" class="form-control" id="flow_address" name="flow_address">
+						  </div>
+						  <div>
+								<label class="form-label" for="product">Product:</label>
+								<select class="form-select" name="product" id="product"></select>
+						  </div>
+						  <div>
+								<label class="form-label" for="trait1">Trait 1:</label>
+								<select class="form-select" name="trait1" id="trait1"></select>
+						  </div>
+						  <div>
+								<label class="form-label" for="trait2">Trait 2:</label>
+								<select class="form-select" name="trait2" id="trait2"></select>
+						  </div>
+						  <div>
+								<label class="form-label" for="max_matches">Maximum Matches:</label>
+								<input class="form-control" type="number" id="max_matches" name="max_matches" min="2" max="24" value="6">
+						  </div>
+						  <div class="mt-4">
+								<label class="form-label" for="difficulty">Predicted Difficulty:</label>
+								<div id="difficulty">Medium</div>
+						  </div>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+		      </div>
+						</form>
+		    </div>
+		  </div>
+		</div>
+
+		<!-- About Modal -->
+		<div class="modal fade" id="modal_about" tabindex="-1" aria-labelledby="modal_aboutLabel" aria-hidden="true">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <h1 class="modal-title fs-5" id="modal_aboutLabel">About NFTrivia</h1>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		      </div>
+		      <div class="modal-body">
+		      	Designed to use your NFTs to generate dynamic trivia-matching games, NFTrivia tests basic memory and pattern recognition while also layering trivia from metadata traits. The result is a simple game that's fun for all ages. Younger players can stick to memory and pattern matching, while older players can focus on matching different attributes, learning a little more about their NFT collection in the process. <i class="bi-medium"></i> <a href="https://medium.com/@intangible/nftrivia-flow-hackathon-29215af4886c" target="_blank">Read more on Medium</a><br><br>
+						Created by Steve Veerman <i class="bi-twitter"></i> <a href="https://twitter.com/intangible_eth" target="_blank">@intangible_eth</a> for the <a href="https://hackathon.flow.com/" target="_blank">Flow Hackathon</a> (February 28th, 2023).<br><br>
+						<i class="bi-github"></i> <a href="https://github.com/veerman/NFTrivia" target="_blank">NFTrivia on GitHub</a><br>
+						<i class="bi-twitter"></i> <a href="https://twitter.com/NFTrivia" target="_blank">@NFTrivia</a>
+		      </div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+
+		<!-- Summary Modal -->
+		<div class="modal fade" id="modal_summary" tabindex="-1" aria-labelledby="modal_summaryLabel" aria-hidden="true">
+		  <div class="modal-dialog">
+		    <div class="modal-content">
+		      <div class="modal-header">
+		        <h1 class="modal-title fs-5" id="modal_summaryLabel">Game Summary</h1>
+		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		      </div>
+		      <div class="modal-body">
+						Congratulations! <i class="bi-award"></i><br><br>
+						Found <span class="game_matches"></span> matches in <span class="timer"></span> seconds, with <span class="game_mismatches"></span> mismatches.<br><br>
+						Claim your limited edition <a href="https://floats.city/0xafc9486c9c7a1286/event/909989173" target="_blank">NFTrivia Flow Hackathon FLOAT</a><br><br>
+						Share your results with friends on <i class="bi-twitter"></i> <a href="" target="_blank" class="twitter_share">Twitter </a><br><br>
+						Think you can finish faster with less mismatches? Play it again.<br><br>
+						Need a different challenge? Change traits in options to increase/decrease difficulty.<br><br>
+					</div>
+		      <div class="modal-footer">
+		        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+		      </div>
+		    </div>
+		  </div>
+		</div>
+	</body>
+</html>
