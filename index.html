@@ -24,10 +24,10 @@
 				font-family: Arial, Helvetica, sans-serif;
 				color: #fff;
 				background-color: #000;
-			  -webkit-user-select: none; /* prevent text select: Safari */
-			  -ms-user-select: none; /* prevent text select: IE 10 and IE 11 */
-			  user-select: none; /* prevent text select: Standard syntax */
-			  touch-action: manipulation /* disable double tap zoom */
+				-webkit-user-select: none; /* prevent text select: Safari */
+				-ms-user-select: none; /* prevent text select: IE 10 and IE 11 */
+				user-select: none; /* prevent text select: Standard syntax */
+				touch-action: manipulation /* disable double tap zoom */
 			}
 
 			body, td, div, p {
@@ -118,14 +118,14 @@
 			// get JSON (fastest available) given an array of urls
 			const getJSON = async (urls) => {
 				let info = 'getJSON';
-			  let result;
-			  try{
+				let result;
+				try{
 					const response = await Promise.any(urls.map(url => fetch(url)));
 					result = await response.json();
-			  	console.log([info, urls, result]);
-			  } catch (err){
-			  	console.log(['error: ' + info, urls, err]); // catch CORS here
-			  }
+					console.log([info, urls, result]);
+				} catch (err){
+					console.log(['error: ' + info, urls, err]); // catch CORS here
+				}
 				return result;
 			}
 
@@ -269,9 +269,9 @@
 			const addGridListeners = () => {
 				const cells = document.querySelectorAll('td');
 				for(let cell of cells){
-				  cell.addEventListener('click', (event) => {
-				  	clickCell(event.target.closest('td'));
-				  });
+					cell.addEventListener('click', (event) => {
+						clickCell(event.target.closest('td'));
+					});
 				}
 			}
 
@@ -386,23 +386,23 @@
 			}
 
 			const clickCell = (td) => {
-		  	let card_id = td.getAttribute('data-id');
-		  	if (cards.hasOwnProperty(card_id)){ // card_id is in cards range (not out of grid bounds)
+				let card_id = td.getAttribute('data-id');
+				if (cards.hasOwnProperty(card_id)){ // card_id is in cards range (not out of grid bounds)
 					if (game.clicks == 0){ // start game
 						startTimer();
 					}
 					game.clicks++;
 
-			  	console.log('Cell ' + card_id);
-			  	console.log(cards[card_id]);
-			  	checkCard(card_id);
-			  	updateGrid();
+					console.log('Cell ' + card_id);
+					console.log(cards[card_id]);
+					checkCard(card_id);
+					updateGrid();
 
-			  	if (game.matches == (cards.length / 2)){ // game finished?
-			  		stopTimer();
-			  		modals.summary.show();
-			  	}
-		  	}
+					if (game.matches == (cards.length / 2)){ // game finished?
+						stopTimer();
+						modals.summary.show();
+					}
+				}
 			}
 
 			// dynamically create dropdown/select options given a list object and optional 'selected' value
@@ -424,7 +424,7 @@
 			let form_data = {};
 			let searchParams = new URLSearchParams(window.location.search);
 			searchParams.forEach((value, key) => {
-			  form_data[key] = value;
+				form_data[key] = value;
 			});
 			let form_defaults = {
 				'product': 'nbatopshot',
@@ -496,34 +496,34 @@
 				});
 				const selects = form.querySelectorAll('select');
 				for(let select of selects){
-				  select.addEventListener('change', (event) => {
+					select.addEventListener('change', (event) => {
 						updateFormData(event.target.id);
-				  });
+					});
 				}
 
 				document.getElementById('product').innerHTML = populateDropdown(products, form_data.product);
 				const populateTraits = () => {
 					document.getElementById('trait1').innerHTML = populateDropdown(traits[form_data.product], form_data.trait1);
 					document.getElementById('trait2').innerHTML = populateDropdown(traits[form_data.product], form_data.trait2);
-			  	if (!traits[form_data.product].hasOwnProperty(form_data.trait1)){
-			  		form_data.trait1 = document.getElementById('trait1').value
-			  	}
-			  	if (!traits[form_data.product].hasOwnProperty(form_data.trait2)){
-			  		form_data.trait2 = document.getElementById('trait2').value
-			  	}
+					if (!traits[form_data.product].hasOwnProperty(form_data.trait1)){
+						form_data.trait1 = document.getElementById('trait1').value
+					}
+					if (!traits[form_data.product].hasOwnProperty(form_data.trait2)){
+						form_data.trait2 = document.getElementById('trait2').value
+					}
 				}
 				populateTraits();
 
-			  document.getElementById('product').addEventListener('change', (event) => {
+				document.getElementById('product').addEventListener('change', (event) => {
 					populateTraits();
-			  });
+				});
 
-			  document.getElementById('flow_address').value = form_data.hasOwnProperty('flow_address') ? form_data.flow_address : '';
-			  document.getElementById('max_matches').value = form_data.max_matches;
+				document.getElementById('flow_address').value = form_data.hasOwnProperty('flow_address') ? form_data.flow_address : '';
+				document.getElementById('max_matches').value = form_data.max_matches;
 			}
 
 			const updateFormData = (id) => {
-		  	form_data[id] = document.getElementById(id).value;
+				form_data[id] = document.getElementById(id).value;
 				if (window.history.replaceState){
 					let url = '?' + (new URLSearchParams(form_data).toString());
 					window.history.replaceState({}, 'NFTrivia', url);
@@ -636,93 +636,93 @@
 			</div>
 		</nav>
 		<div class="container text-center game_stats" style="padding: 14px">
-		  <div class="row">
-		    <div class="col">
-		      <i class="bi-stopwatch"></i> Timer: <span class="timer"></span>
-		    </div>
-		    <div class="col">
-		      <i class="bi-check-all"></i> Matches: <span class="game_matches"></span>
-		    </div>
-		    <div class="col">
+			<div class="row">
+				<div class="col">
+					<i class="bi-stopwatch"></i> Timer: <span class="timer"></span>
+				</div>
+				<div class="col">
+					<i class="bi-check-all"></i> Matches: <span class="game_matches"></span>
+				</div>
+				<div class="col">
 					<i class="bi-x"></i> Mismatches: <span class="game_mismatches"></span>
-		    </div>
-		  </div>
+				</div>
+			</div>
 		</div>
 		<div id="grid"></div>
 
 		<!-- Options Modal -->
 		<div class="modal fade" id="modal_options" tabindex="-1" aria-labelledby="modal_optionsLabel" aria-hidden="true">
-		  <div class="modal-dialog">
-		    <div class="modal-content">
-		    	<form method="get" id="options">
-		      <div class="modal-header">
-		        <h1 class="modal-title fs-5" id="modal_optionsLabel">Options</h1>
-		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-		      </div>
-		      <div class="modal-body">
-						  <div>
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<form method="get" id="options">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="modal_optionsLabel">Options</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+							<div>
 								<label class="form-label" for="flow_address">Flow Address (or Dapper username):</label>
 								<input type="text" class="form-control" id="flow_address" name="flow_address">
-						  </div>
-						  <div>
+							</div>
+							<div>
 								<label class="form-label" for="product">Product:</label>
 								<select class="form-select" name="product" id="product"></select>
-						  </div>
-						  <div>
+							</div>
+							<div>
 								<label class="form-label" for="trait1">Trait 1:</label>
 								<select class="form-select" name="trait1" id="trait1"></select>
-						  </div>
-						  <div>
+							</div>
+							<div>
 								<label class="form-label" for="trait2">Trait 2:</label>
 								<select class="form-select" name="trait2" id="trait2"></select>
-						  </div>
-						  <div>
+							</div>
+							<div>
 								<label class="form-label" for="max_matches">Maximum Matches:</label>
 								<input class="form-control" type="number" id="max_matches" name="max_matches" min="2" max="24" value="6">
-						  </div>
-						  <div class="mt-4">
+							</div>
+							<div class="mt-4">
 								<label class="form-label" for="difficulty">Predicted Difficulty:</label>
 								<div id="difficulty">Medium</div>
-						  </div>
-		      </div>
-		      <div class="modal-footer">
-		        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-		      </div>
+							</div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+					</div>
 						</form>
-		    </div>
-		  </div>
+				</div>
+			</div>
 		</div>
 
 		<!-- About Modal -->
 		<div class="modal fade" id="modal_about" tabindex="-1" aria-labelledby="modal_aboutLabel" aria-hidden="true">
-		  <div class="modal-dialog">
-		    <div class="modal-content">
-		      <div class="modal-header">
-		        <h1 class="modal-title fs-5" id="modal_aboutLabel">About NFTrivia</h1>
-		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-		      </div>
-		      <div class="modal-body">
-		      	Designed to use your NFTs to generate dynamic trivia-matching games, NFTrivia tests basic memory and pattern recognition while also layering trivia from metadata traits. The result is a simple game that's fun for all ages. Younger players can stick to memory and pattern matching, while older players can focus on matching different attributes, learning a little more about their NFT collection in the process. <i class="bi-medium"></i> <a href="https://medium.com/@intangible/nftrivia-flow-hackathon-29215af4886c" target="_blank">Read more on Medium</a><br><br>
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="modal_aboutLabel">About NFTrivia</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
+						Designed to use your NFTs to generate dynamic trivia-matching games, NFTrivia tests basic memory and pattern recognition while also layering trivia from metadata traits. The result is a simple game that's fun for all ages. Younger players can stick to memory and pattern matching, while older players can focus on matching different attributes, learning a little more about their NFT collection in the process. <i class="bi-medium"></i> <a href="https://medium.com/@intangible/nftrivia-flow-hackathon-29215af4886c" target="_blank">Read more on Medium</a><br><br>
 						Created by Steve Veerman <i class="bi-twitter"></i> <a href="https://twitter.com/intangible_eth" target="_blank">@intangible_eth</a> for the <a href="https://hackathon.flow.com/" target="_blank">Flow Hackathon</a> (February 28th, 2023).<br><br>
 						<i class="bi-github"></i> <a href="https://github.com/veerman/NFTrivia" target="_blank">NFTrivia on GitHub</a><br>
 						<i class="bi-twitter"></i> <a href="https://twitter.com/NFTrivia" target="_blank">@NFTrivia</a>
-		      </div>
-		      <div class="modal-footer">
-		        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-		      </div>
-		    </div>
-		  </div>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Summary Modal -->
 		<div class="modal fade" id="modal_summary" tabindex="-1" aria-labelledby="modal_summaryLabel" aria-hidden="true">
-		  <div class="modal-dialog">
-		    <div class="modal-content">
-		      <div class="modal-header">
-		        <h1 class="modal-title fs-5" id="modal_summaryLabel">Game Summary</h1>
-		        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-		      </div>
-		      <div class="modal-body">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h1 class="modal-title fs-5" id="modal_summaryLabel">Game Summary</h1>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body">
 						Congratulations! <i class="bi-award"></i><br><br>
 						Found <span class="game_matches"></span> matches in <span class="timer"></span> seconds, with <span class="game_mismatches"></span> mismatches.<br><br>
 						Claim your limited edition <a href="https://floats.city/0xafc9486c9c7a1286/event/909989173" target="_blank">NFTrivia Flow Hackathon FLOAT</a><br><br>
@@ -730,11 +730,11 @@
 						Think you can finish faster with less mismatches? Play it again.<br><br>
 						Need a different challenge? Change traits in options to increase/decrease difficulty.<br><br>
 					</div>
-		      <div class="modal-footer">
-		        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-		      </div>
-		    </div>
-		  </div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
 		</div>
 	</body>
 </html>
