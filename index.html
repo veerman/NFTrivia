@@ -286,6 +286,7 @@
 				}
 			}
 
+			// update grid and game stats
 			const updateGrid = () => {
 				for(let element of document.getElementsByClassName('game_matches')){
 					element.innerHTML = game.matches + ' / ' + (cards.length / 2);
@@ -314,6 +315,7 @@
 				}
 			}
 
+			// determine the largest possible card size given screen dimensions and grid size
 			const calcCardSize = () => {
 				const grid = document.getElementById('grid');
 				const grid_parent_children = grid.parentNode.childNodes;
@@ -338,6 +340,7 @@
 				return result;
 			}
 
+			// dynamically resize .game_card by overwriting CSS rule
 			const resizeCards = () => {
 				let card_size = calcCardSize();
 				console.log('resizeCards');
@@ -385,6 +388,7 @@
 				}
 			}
 
+			// cell click callback, most game logic (checking cards, determining winner, etc) is linked to this event
 			const clickCell = (td) => {
 				let card_id = td.getAttribute('data-id');
 				if (cards.hasOwnProperty(card_id)){ // card_id is in cards range (not out of grid bounds)
@@ -420,6 +424,61 @@
 				return dropdown.innerHTML;
 			}
 
+			// update form callback, saves form input/changes to form_data, updates current URL state, updates difficulty prediction
+			const updateFormData = (id) => {
+				form_data[id] = document.getElementById(id).value;
+				if (window.history.replaceState){
+					let url = '?' + (new URLSearchParams(form_data).toString());
+					window.history.replaceState({}, 'NFTrivia', url);
+				}
+				document.getElementById('difficulty').innerHTML = predictDifficulty();
+				document.getElementById('restart').href = window.location.href;
+			}
+
+			// determine if string contains parts of strings from given array (used to help determine difficulty)
+			const arrayValuesContain = (arr, str = '') => {
+				let found = false;
+				for(let item of arr){
+					if (str.toLowerCase().indexOf(item) !== -1){
+						found = true;
+					}
+				}
+				return found;
+			}
+
+			// predict the approximate difficulty of the game from the given form_data/options
+			const predictDifficulty = () => {
+				let difficulty_score = 0;
+				if (form_data.trait1 === form_data.trait2){ // traits are the same (ie. simple pattern matching), should be easy
+					difficulty_score += 0;
+				}
+				else{ // medium or hard
+					let trait_values = ['player name', 'team name', 'player number'];
+					if (arrayValuesContain(trait_values, traits[form_data.product][form_data.trait1]) && arrayValuesContain(trait_values, traits[form_data.product][form_data.trait2])){ // both traits contain medium trait value
+						difficulty_score += 1;
+					}
+					else{
+						difficulty_score += 2;
+					}
+				}
+				if (form_data.max_matches >= 16){ // add +1 difficulty if more than 16 match pairs
+					difficulty_score += 1;
+				}
+
+				let difficulty_label = '';
+				switch(difficulty_score){
+					case 0:
+						difficulty_label = 'Easy';
+						break;
+					case 1:
+						difficulty_label = 'Medium';
+						break;
+					default:
+						difficulty_label = 'Hard';
+				}
+				return difficulty_label;
+			}
+
 			// initialize form data, using query string params and defaults if necessary
 			let form_data = {};
 			let searchParams = new URLSearchParams(window.location.search);
@@ -438,6 +497,7 @@
 				}
 			}
 
+			// declare global variables
 			let modals = {};
 			let metadatas = {};
 			let cards;
@@ -454,11 +514,13 @@
 			const init = () => {
 				console.log('init');
 
+				document.getElementById('restart').href = window.location.href;
+
 				modals.options = new bootstrap.Modal(document.getElementById('modal_options'));
 				modals.about = new bootstrap.Modal(document.getElementById('modal_about'));
 				const modal_summary = document.getElementById('modal_summary');
 				modals.summary = new bootstrap.Modal(modal_summary);
-				modal_summary.addEventListener('shown.bs.modal', event => {
+				modal_summary.addEventListener('shown.bs.modal', event => { // on summary modal open, update twitter link to be current game URL with game stats
 					let twitter_post = `Just matched ${game.matches} ${form_data.product} NFTs (with ${game.mismatches} mismatches) in ${game.duration.toFixed(1)} seconds on @NFTrivia.\n\nCan you beat me?\n\n`;
 					twitter_post += 'https://nftrivia.app/?' + (new URLSearchParams(form_data).toString());
 					for(let element of document.getElementsByClassName('twitter_share')){
@@ -522,58 +584,7 @@
 				document.getElementById('max_matches').value = form_data.max_matches;
 			}
 
-			const updateFormData = (id) => {
-				form_data[id] = document.getElementById(id).value;
-				if (window.history.replaceState){
-					let url = '?' + (new URLSearchParams(form_data).toString());
-					window.history.replaceState({}, 'NFTrivia', url);
-				}
-				document.getElementById('difficulty').innerHTML = predictDifficulty();
-			}
-
-			const arrayValuesContain = (arr, str = '') => {
-				console.log([arr, str]);
-				let found = false;
-				for(let item of arr){
-					if (str.toLowerCase().indexOf(item) !== -1){
-						found = true;
-					}
-				}
-				return found;
-			}
-
-			const predictDifficulty = () => {
-				let difficulty_score = 0;
-				if (form_data.trait1 === form_data.trait2){ // traits are the same (ie. simple pattern matching), should be easy
-					difficulty_score += 0;
-				}
-				else{ // medium or hard
-					let trait_values = ['player name', 'team name', 'player number'];
-					if (arrayValuesContain(trait_values, traits[form_data.product][form_data.trait1]) && arrayValuesContain(trait_values, traits[form_data.product][form_data.trait2])){ // both traits contain medium trait value
-						difficulty_score += 1;
-					}
-					else{
-						difficulty_score += 2;
-					}
-				}
-				if (form_data.max_matches >= 16){ // add +1 difficulty if more than 16 match pairs
-					difficulty_score += 1;
-				}
-
-				let difficulty_label = '';
-				switch(difficulty_score){
-					case 0:
-						difficulty_label = 'Easy';
-						break;
-					case 1:
-						difficulty_label = 'Medium';
-						break;
-					default:
-						difficulty_label = 'Hard';
-				}
-				return difficulty_label;
-			}
-
+			// start game
 			const start = async () => {
 				console.log('start');
 				game = {
@@ -621,10 +632,10 @@
 	<body>
 		<nav class="navbar navbar-expand-lg bg-body-tertiary">
 			<div class="container-fluid">
-				<a class="navbar-brand" href="#">NFTrivia</a>
+				<a class="navbar-brand" href="index.html">NFTrivia</a>
 				<ul class="navbar-nav d-flex flex-row me-1">
 					<li class="nav-item me-3 me-lg-0">
-						<a class="nav-link text-white" href="javascript:start();"><i class="bi-arrow-repeat"></i> New Game</a>
+						<a class="nav-link text-white" id="restart"><i class="bi-arrow-repeat"></i> New Game</a>
 					</li>
 					<li class="nav-item me-3 me-lg-0">
 						<a class="nav-link text-white" href="javascript:modals.options.show()"><i class="bi-gear"></i> Options</a>
@@ -660,30 +671,30 @@
 						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
 					<div class="modal-body">
-							<div>
-								<label class="form-label" for="flow_address">Flow Address (or Dapper username):</label>
-								<input type="text" class="form-control" id="flow_address" name="flow_address">
-							</div>
-							<div>
-								<label class="form-label" for="product">Product:</label>
-								<select class="form-select" name="product" id="product"></select>
-							</div>
-							<div>
-								<label class="form-label" for="trait1">Trait 1:</label>
-								<select class="form-select" name="trait1" id="trait1"></select>
-							</div>
-							<div>
-								<label class="form-label" for="trait2">Trait 2:</label>
-								<select class="form-select" name="trait2" id="trait2"></select>
-							</div>
-							<div>
-								<label class="form-label" for="max_matches">Maximum Matches:</label>
-								<input class="form-control" type="number" id="max_matches" name="max_matches" min="2" max="24" value="6">
-							</div>
-							<div class="mt-4">
-								<label class="form-label" for="difficulty">Predicted Difficulty:</label>
-								<div id="difficulty">Medium</div>
-							</div>
+						<div>
+							<label class="form-label" for="flow_address">Flow Address (or Dapper username):</label>
+							<input type="text" class="form-control" id="flow_address" name="flow_address">
+						</div>
+						<div>
+							<label class="form-label" for="product">Product:</label>
+							<select class="form-select" name="product" id="product"></select>
+						</div>
+						<div>
+							<label class="form-label" for="trait1">Trait 1:</label>
+							<select class="form-select" name="trait1" id="trait1"></select>
+						</div>
+						<div>
+							<label class="form-label" for="trait2">Trait 2:</label>
+							<select class="form-select" name="trait2" id="trait2"></select>
+						</div>
+						<div>
+							<label class="form-label" for="max_matches">Maximum Matches:</label>
+							<input class="form-control" type="number" id="max_matches" name="max_matches" min="2" max="24" value="6">
+						</div>
+						<div class="mt-4">
+							<label class="form-label" for="difficulty">Predicted Difficulty:</label>
+							<div id="difficulty">Medium</div>
+						</div>
 					</div>
 					<div class="modal-footer">
 						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
